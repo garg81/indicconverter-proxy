@@ -1,13 +1,21 @@
 export default async function handler(req, res) {
+    // Browser ki "puchhtachh wali" OPTIONS request ka jawab dein
+    if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        return res.status(200).end();
+    }
+
+    // Ab, sirf POST requests ko allow karein
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Only POST requests are allowed' });
     }
 
-    // ▼▼▼ YEH TEEN LINES SABSE ZAROORI HAIN ▼▼▼
+    // CORS Headers (Yeh POST request ke liye bhi zaroori hai)
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    // ▲▲▲ YEH TEEN LINES SABSE ZAROORI HAIN ▲▲▲
 
     try {
         const { keyIndex, prompt } = req.body;
