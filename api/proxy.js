@@ -3,28 +3,33 @@ export default async function handler(req, res) {
         return res.status(405).json({ message: 'Only POST requests are allowed' });
     }
 
-    const API_KEY = process.env.GOOGLE_AI_API_KEY;
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (!API_KEY) {
-        return res.status(500).json({ message: 'API key is not configured' });
-    }
-
-    // YEH LINE AB THEEK KAR DI GAYI HAI
-    const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
-    
     try {
+        const { keyIndex, prompt } = req.body;
+
+        if (typeof keyIndex === 'undefined' || !prompt) {
+            return res.status(400).json({ message: 'Missing keyIndex or prompt in request' });
+        }
+
+        const keyName = `GEMINI_API_KEY_${keyIndex}`;
+        const API_KEY = process.env[keyName];
+
+        if (!API_KEY) {
+            return res.status(500).json({ message: `API key for index ${keyIndex} is not configured` });
+        }
+
+        const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
+        
         const googleResponse = await fetch(GOOGLE_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req.body),
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
         });
 
         const data = await googleResponse.json();
-
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
         res.status(200).json(data);
 
     } catch (error) {
