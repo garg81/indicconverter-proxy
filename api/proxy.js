@@ -1,15 +1,13 @@
 export default async function handler(req, res) {
-    // CORS Headers: Browser ki security bypass karne ke liye
+    // CORS Headers: Browser security ke liye
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // OPTIONS request ka turant jawab dein (Pre-flight check)
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
-    // Sirf POST requests allow karein
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Only POST requests are allowed' });
     }
@@ -18,46 +16,38 @@ export default async function handler(req, res) {
         const { type, keyIndex, prompt } = req.body;
 
         // ==========================================
-        // 1. GOLD & SILVER RATE LOGIC (Unlimited)
+        // 1. GOLD & SILVER LOGIC (RAPID API)
         // ==========================================
         if (type === 'metal') {
-            try {
-                // AllOrigins ka use karke hum Indian site se data scrape kar rahe hain
-                const metalSource = "https://api.allorigins.win/get?url=" + encodeURIComponent("https://www.goodreturns.in/gold-rates/");
-                const response = await fetch(metalSource);
-                
-                if (!response.ok) throw new Error("Source site unreachable");
-                
-                const data = await response.json();
-                const html = data.contents;
+            const rapidResponse = await fetch("https://gold-price-live.p.rapidapi.com/get_metal_prices", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-rapidapi-host": "gold-price-live.p.rapidapi.com",
+                    "x-rapidapi-key": "08d0c3d254msh9925de69bfb9c3cp1401b8jsna57c7970d244"
+                }
+            });
+            
+            const data = await rapidResponse.json();
 
-                // Regex: ₹ ke baad likhe huye rates ko dhundhna
-                const goldMatch = html.match(/₹\s?([0-9,]{5,})/); // 24K 10g rate
-                const silverMatch = html.match(/₹\s?([0-9,]{2,})/); // Silver rate
-                
-                // Agar scraping fail ho jaye toh ye Backup Rates bheje ga (taaki loading na atke)
-                const finalGold = goldMatch ? goldMatch[1].replace(/,/g, '') : "75100";
-                const finalSilver = "84200"; 
+            // Calibration: USD Price ko Indian Market (INR + Taxes) mein badalna
+            const usdToInr = 88.5; // Current Exchange Rate
+            const goldPriceUsd = data.gold_price; // Price per Ounce
+            const silverPriceUsd = data.silver_price; // Price per Ounce
 
-                return res.status(200).json({
-                    gold24k: finalGold,
-                    silverKg: finalSilver,
-                    success: true
-                });
+            // Formula: (USD / 31.1035) * ExchangeRate * ImportDuty(1.092)
+            const goldInrPerGram = (goldPriceUsd / 31.1035) * usdToInr * 1.092;
+            const silverInrPerGram = (silverPriceUsd / 31.1035) * usdToInr * 1.12;
 
-            } catch (scrapingError) {
-                // Network error ke case mein fallback rates
-                return res.status(200).json({ 
-                    gold24k: "75100", 
-                    silverKg: "84200", 
-                    success: true,
-                    note: "Using fallback rates due to connection issue"
-                });
-            }
+            return res.status(200).json({
+                gold24k: (goldInrPerGram * 10).toString(), // 10g Rate
+                silverKg: (silverInrPerGram * 1000).toString(), // 1kg Rate
+                success: true
+            });
         }
 
         // ==========================================
-        // 2. EXISTING GEMINI AI LOGIC
+        // 2. EXISTING GEMINI LOGIC
         // ==========================================
         if (typeof keyIndex !== 'undefined' && prompt) {
             const keyName = `GEMINI_API_KEY_${keyIndex}`;
@@ -67,7 +57,6 @@ export default async function handler(req, res) {
                 return res.status(500).json({ message: `API key ${keyName} is not configured` });
             }
 
-            // Gemini 2.5 ya 1.5 jo bhi aap use kar rahe hain
             const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
             
             const googleResponse = await fetch(GOOGLE_API_URL, {
@@ -80,11 +69,9 @@ export default async function handler(req, res) {
             return res.status(200).json(aiData);
         }
 
-        // Agar dono mein se kuch nahi mila
-        return res.status(400).json({ message: 'Invalid request. Provide type="metal" OR keyIndex and prompt.' });
+        return res.status(400).json({ message: 'Missing type="metal" OR prompt parameters' });
 
     } catch (error) {
-        console.error("Proxy Error:", error.message);
-        res.status(500).json({ message: 'Internal Server Error', error: error.message });
+        res.status(500).json({ message: 'Proxy Error', error: error.message });
     }
 }
