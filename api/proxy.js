@@ -27,7 +27,7 @@ export default async function handler(req, res) {
         }
 
         // Model name wahi rakha hai jo aapne diya tha
-        const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+        const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
         
         const googleResponse = await fetch(GOOGLE_API_URL, {
             method: 'POST',
