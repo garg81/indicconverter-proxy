@@ -18,16 +18,15 @@ export default async function handler(req, res) {
             return res.status(400).json({ message: 'Missing keyIndex or prompt' });
         }
 
-        // --- KEY SWITCHING LOGIC ---
         const keyName = `GEMINI_API_KEY_${keyIndex}`;
         const API_KEY = process.env[keyName];
 
         if (!API_KEY) {
-            return res.status(500).json({ message: `Key ${keyName} not found in Vercel` });
+            return res.status(500).json({ message: `Key ${keyName} not found` });
         }
 
-        // Model name wahi rakha hai jo aapne diya tha
-        const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+        // MAINE YAHAN 1.5-FLASH KAR DIYA HAI JO SAHI MODEL HAI
+        const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
         
         const googleResponse = await fetch(GOOGLE_API_URL, {
             method: 'POST',
